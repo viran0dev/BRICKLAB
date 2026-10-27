@@ -1,0 +1,79 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Nabla", "Outfit", system-ui, sans-serif;
+  --font-sans: "Outfit", system-ui, sans-serif;
+
+  --color-ink: #090b10;
+  --color-ink-2: #10141d;
+  --color-panel: #171b27;
+  --color-cream: #f3ecdf;
+  --color-muted: #a39886;
+  --color-amber: #f0a202;
+  --color-amber-deep: #a36c04;
+  --color-danger: #e5484d;
+  --color-line: #2c3344;
+  --color-ok: #3dd68c;
+}
+
+@layer base {
+  html,
+  body {
+    height: 100%;
+    background: var(--color-ink);
+    color: var(--color-cream);
+  }
+
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow: hidden;
+    text-rendering: optimizeLegibility;
+  }
+}
+
+.nabla {
+  font-family: "Nabla", system-ui;
+  font-synthesis: none;
+  font-weight: 400;
+  line-height: 1.2;
+}
+
+.hud-panel {
+  background: color-mix(in oklab, var(--color-panel) 84%, transparent);
+  border: 1px solid color-mix(in oklab, var(--color-cream) 12%, transparent);
+  box-shadow: 0 16px 40px rgb(0 0 0 / 0.35);
+  backdrop-filter: blur(18px);
+}
+
+.safe-pad {
+  padding-top: max(0.75rem, env(safe-area-inset-top));
+  padding-right: max(0.75rem, env(safe-area-inset-right));
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+  padding-left: max(0.75rem, env(safe-area-inset-left));
+}
+
+.sheet {
+  max-height: min(40rem, 86dvh);
+}
+
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklab, var(--color-amber) 45%, transparent) transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

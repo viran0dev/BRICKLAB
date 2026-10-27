@@ -1,0 +1,36 @@
+{
+  "url": "http://127.0.0.1:8080/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "Brick Lab",
+      "hasCanvas": true,
+      "bodyTextLen": 424,
+      "bodyTextHash": "2f41ce8f00d85b242cabbe03ad6df59dd50045ce38855b6bc780177bb748ed25",
+      "bodyTextPrefix": "BRICK LAB 0 bricks · 0 studs Build Paint Select Look Bricks Plat",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "Brick Lab",
+      "hasCanvas": false,
+      "bodyTextLen": 424,
+      "bodyTextHash": "2f41ce8f00d85b242cabbe03ad6df59dd50045ce38855b6bc780177bb748ed25",
+      "bodyTextPrefix": "BRICK LAB 0 bricks · 0 studs Build Paint Select Look Bricks Plat",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-preview.json"
+}

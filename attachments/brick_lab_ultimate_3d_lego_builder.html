@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>BRICK LAB — Pro 3D LEGO Builder</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+
+    <style>
+        * {
+            font-family: 'Inter', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        html, body {
+            width: 100%;
+            height: 100%;
+            height: 100dvh;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #050811;
+        }
+        .safe-pb {
+            padding-bottom: env(safe-area-inset-bottom, 16px);
+        }
+        .safe-pt {
+            padding-top: env(safe-area-inset-top, 16px);
+        }
+        .glass-panel {
+            background: rgba(13, 19, 36, 0.75);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .touch-target {
+            min-width: 44px;
+            min-height: 44px;
+        }
+        .active-mode-btn {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
+            color: #050811 !important;
+            box-shadow: 0 0 20px rgba(245, 158, 11, 0.4);
+            font-weight: 800 !important;
+        }
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(245, 158, 11, 0.4);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(13, 19, 36, 0.3);
+        }
+    </style>
+</head>
+<body class="text-white antialiased w-full h-full relative overflow-hidden">
+
+    <!-- 3D Canvas Container -->
+    <main id="canvas-container" class="w-full h-full absolute inset-0 z-0"></main>
+
+    <!-- USER INTERFACE HUD -->
+    <div id="game-hud" class="fixed inset-0 z-10 pointer-events-none flex flex-col justify-between p-3.5 safe-pt safe-pb">
+        
+        <!-- Top Header & Toolbar -->
+        <header class="flex items-center justify-between w-full max-w-4xl mx-auto gap-2.5">
+            <!-- Branding with Logo & Brick Count -->
+            <div class="glass-panel px-3.5 py-2 rounded-2xl flex items-center gap-3 shadow-2xl pointer-events-auto border border-white/10">
+                <div class="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center overflow-hidden shadow-inner">
+                    <img id="app-logo" src="./logo.png" alt="Logo" class="w-7 h-7 object-contain" onerror="this.onerror=null; this.src='https://placehold.co/40x40/f59e0b/070b14?text=BL';">
+                </div>
+                <div>
+                    <h1 class="text-xs font-black text-amber-400 tracking-wider">BRICK LAB</h1>
+                    <span id="hud-brick-count" class="text-[11px] text-slate-300 font-bold block leading-none">Bricks: 0</span>
+                </div>
+            </div>
+
+            <!-- Camera & Canvas Actions (Zoom In / Zoom Out / Reset View) -->
+            <div class="flex items-center gap-1 glass-panel p-1.5 rounded-2xl shadow-2xl pointer-events-auto border border-white/10">
+                <button onclick="zoomInCamera()" class="touch-target px-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 active:scale-95 transition flex items-center justify-center gap-1 text-xs font-semibold" title="Zoom In">
+                    <i data-lucide="zoom-in" class="w-4 h-4 text-amber-400"></i>
+                </button>
+                <button onclick="zoomOutCamera()" class="touch-target px-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 active:scale-95 transition flex items-center justify-center gap-1 text-xs font-semibold" title="Zoom Out">
+                    <i data-lucide="zoom-out" class="w-4 h-4 text-amber-400"></i>
+                </button>
+                <div class="w-px h-5 bg-slate-700/80 mx-0.5"></div>
+                <button onclick="resetCameraView()" class="touch-target px-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 active:scale-95 transition flex items-center justify-center" title="Reset View">
+                    <i data-lucide="orbit" class="w-4 h-4 text-slate-300"></i>
+                </button>
+            </div>
+
+            <!-- History & Storage Actions -->
+            <div class="flex items-center gap-1.5 glass-panel p-1.5 rounded-2xl shadow-2xl pointer-events-auto border border-white/10">
+                <button onclick="undoAction()" class="touch-target px-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 active:scale-95 transition flex items-center justify-center" title="Undo">
+                    <i data-lucide="undo-2" class="w-4 h-4"></i>
+                </button>
+                <button onclick="redoAction()" class="touch-target px-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 active:scale-95 transition flex items-center justify-center" title="Redo">
+                    <i data-lucide="redo-2" class="w-4 h-4"></i>
+                </button>
+                <div class="w-px h-5 bg-slate-700/80"></div>
+                <button onclick="saveWorldLocal()" class="touch-target px-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-amber-400 active:scale-95 transition flex items-center justify-center" title="Quick Save">
+                    <i data-lucide="save" class="w-4 h-4"></i>
+                </button>
+                <button onclick="toggleSettingsPanel()" class="touch-target px-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 active:scale-95 transition flex items-center justify-center" title="Settings">
+                    <i data-lucide="sliders" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Toast Notification Box -->
+        <div id="toast-msg" class="self-center glass-panel px-4 py-2 rounded-2xl text-xs font-bold text-amber-300 border border-amber-500/30 shadow-2xl opacity-0 transition-all duration-300 pointer-events-none transform translate-y-3">
+            Ready to Build
+        </div>
+
+        <!-- Bottom Controls & Palettes -->
+        <footer class="w-full max-w-xl mx-auto flex flex-col gap-2.5 pointer-events-auto">
+            <!-- Mode & Object Action Toolbar -->
+            <div id="context-bar" class="glass-panel p-1.5 rounded-2xl flex items-center justify-around gap-1 shadow-2xl border border-white/10">
+                <button id="mode-camera-btn" onclick="setInteractionMode('camera')" class="touch-target flex-1 rounded-xl bg-slate-800/80 text-xs font-bold text-slate-300 flex items-center justify-center gap-1.5 transition">
+                    <i data-lucide="navigation" class="w-4 h-4"></i>
+                    <span>Camera</span>
+                </button>
+                <button id="mode-build-btn" onclick="setInteractionMode('build')" class="touch-target flex-1 rounded-xl bg-slate-800/80 text-xs font-bold text-slate-300 active-mode-btn flex items-center justify-center gap-1.5 transition">
+                    <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                    <span>Build</span>
+                </button>
+                <button id="mode-select-btn" onclick="setInteractionMode('select')" class="touch-target flex-1 rounded-xl bg-slate-800/80 text-xs font-bold text-slate-300 flex items-center justify-center gap-1.5 transition">
+                    <i data-lucide="mouse-pointer-2" class="w-4 h-4"></i>
+                    <span>Select</span>
+                </button>
+
+                <div class="w-px h-6 bg-slate-700/80"></div>
+
+                <button onclick="rotateSelectedBrick()" class="touch-target px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 font-bold flex items-center justify-center gap-1 active:scale-95 transition" title="Rotate">
+                    <i data-lucide="rotate-cw" class="w-4 h-4"></i>
+                </button>
+                <button onclick="deleteSelectedBrick()" class="touch-target px-3 rounded-xl bg-red-950/60 hover:bg-red-900/80 text-red-400 font-bold flex items-center justify-center gap-1 active:scale-95 transition" title="Delete Brick">
+                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                </button>
+            </div>
+
+            <!-- Palette & Brick Sizes Dock -->
+            <div class="glass-panel p-2.5 rounded-2xl flex flex-col gap-2.5 shadow-2xl border border-white/10">
+                <!-- Color Swatches -->
+                <div class="flex items-center gap-2 overflow-x-auto pb-1" id="color-picker-container">
+                    <!-- Populated via JS -->
+                </div>
+                <!-- Brick Dimensions Grid -->
+                <div class="grid grid-cols-4 gap-1.5">
+                    <button onclick="selectBrickSize(1,1)" class="size-btn touch-target bg-slate-800/80 rounded-xl text-center text-xs font-bold text-amber-300 border border-slate-700 flex items-center justify-center transition">1 × 1</button>
+                    <button onclick="selectBrickSize(1,2)" class="size-btn touch-target bg-slate-800/80 rounded-xl text-center text-xs font-bold text-amber-300 border border-slate-700 flex items-center justify-center transition">1 × 2</button>
+                    <button onclick="selectBrickSize(2,2)" class="size-btn touch-target bg-amber-500/20 rounded-xl text-center text-xs font-bold text-amber-400 border border-amber-500/50 flex items-center justify-center transition">2 × 2</button>
+                    <button onclick="selectBrickSize(2,4)" class="size-btn touch-target bg-slate-800/80 rounded-xl text-center text-xs font-bold text-amber-300 border border-slate-700 flex items-center justify-center transition">2 × 4</button>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- SETTINGS & FILE MANAGEMENT MODAL -->
+    <div id="settings-panel" class="fixed inset-0 z-40 bg-slate-950/85 backdrop-blur-md hidden flex items-center justify-center p-4">
+        <div class="glass-panel rounded-3xl w-full max-w-md p-5 space-y-4 shadow-2xl border border-slate-700">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div class="flex items-center gap-2.5">
+                    <i data-lucide="settings" class="w-5 h-5 text-amber-400"></i>
+                    <h2 class="text-sm font-bold text-white">Project & File Settings</h2>
+                </div>
+                <button onclick="toggleSettingsPanel()" class="touch-target p-2 rounded-xl bg-slate-800 text-slate-400 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <div class="space-y-3 text-xs">
+                <button onclick="saveWorldLocal()" class="w-full bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold py-3 px-4 rounded-xl flex items-center justify-between border border-slate-700 active:scale-95 transition">
+                    <span class="flex items-center gap-2.5"><i data-lucide="save" class="w-4 h-4"></i> Save to Local Storage</span>
+                    <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400"></i>
+                </button>
+                <button onclick="loadWorldLocal()" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold py-3 px-4 rounded-xl flex items-center justify-between border border-slate-700 active:scale-95 transition">
+                    <span class="flex items-center gap-2.5"><i data-lucide="folder-down" class="w-4 h-4"></i> Load Last Save</span>
+                    <i data-lucide="refresh-cw" class="w-4 h-4 text-slate-400"></i>
+                </button>
+
+                <div class="pt-2 border-t border-slate-800 grid grid-cols-2 gap-2">
+                    <button onclick="exportWorldJSON()" class="bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-bold py-3 rounded-xl border border-amber-500/40 flex items-center justify-center gap-2 active:scale-95 transition">
+                        <i data-lucide="download" class="w-4 h-4"></i> Export JSON
+                    </button>
+                    <label class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-3 rounded-xl border border-slate-700 flex items-center justify-center gap-2 cursor-pointer active:scale-95 transition">
+                        <i data-lucide="upload" class="w-4 h-4"></i> Import JSON
+                        <input type="file" id="import-json-file" accept=".json" class="hidden" onchange="importWorldJSON(event)">
+                    </label>
+                </div>
+
+                <button onclick="clearAllUserBricks()" class="w-full bg-red-950/40 hover:bg-red-900/60 text-red-400 font-bold py-3 px-4 rounded-xl border border-red-900/50 flex items-center justify-center gap-2 mt-2 active:scale-95 transition">
+                    <i data-lucide="trash-2" class="w-4 h-4"></i> Clear Canvas
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- APPLICATION LOGIC ENGINE -->
+    <script>
+        // --- CONSTANTS & CONFIG ---
+        const LEGO_UNIT = 1.0;
+        const BRICK_HEIGHT = 1.2;
+        const STUD_RADIUS = 0.36;
+        const STUD_HEIGHT = 0.22;
+        const BASEPLATE_SIZE = 48;
+
+        const PALETTE_COLORS = [
+            '#e63946', '#f4a261', '#e9c46a', '#2a9d8f',
+            '#264653', '#457b9d', '#1d3557', '#ffffff',
+            '#adb5bd', '#212529', '#ff007f', '#7209b7'
+        ];
+
+        // --- APPLICATION STATE ---
+        let scene, camera, renderer;
+        let interactionMode = 'build'; // 'camera', 'build', 'select'
+        let selectedColor = '#e63946';
+        let selectedWidth = 2;
+        let selectedLength = 2;
+        let selectedRotation = 0; // 0, PI/2, PI, 3PI/2
+
+        let activeSelectedMesh = null;
+        let previewBrickGroup = null;
+
+        let userBricks = [];
+        let buildableMeshes = [];
+        let undoStack = [];
+        let redoStack = [];
+
+        // Camera Orbit & Zoom State
+        let cameraRadius = 24;
+        let cameraTheta = Math.PI / 4;
+        let cameraPhi = Math.PI / 3.2;
+        let cameraTarget = new THREE.Vector3(0, 1.2, 0);
+
+        // Pointer Gestures
+        const activePointers = new Map();
+        let prevPinchDist = null;
+        let isPointerDragging = false;
+        let pointerDownPos = { x: 0, y: 0 };
+        let pointerDownTime = 0;
+
+        const raycaster = new THREE.Raycaster();
+        const mouseVector = new THREE.Vector2();
+
+        // --- TOAST NOTIFICATION ---
+        function showToast(message) {
+            const toast = document.getElementById('toast-msg');
+            toast.innerText = message;
+            toast.classList.remove('opacity-0', 'translate-y-3');
+            toast.classList.add('opacity-100', 'translate-y-0');
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-3');
+                toast.classList.remove('opacity-100', 'translate-y-0');
+            }, 2200);
+        }
+
+        // --- 3D ENGINE INITIALIZATION ---
+        function initEngine() {
+            const container = document.getElementById('canvas-container');
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color('#050811');
+            scene.fog = new THREE.FogExp2('#050811', 0.010);
+
+            camera = new THREE.PerspectiveCamera(48, window.innerWidth / window.innerHeight, 0.1, 400);
+            updateCameraPosition();
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(renderer.domElement);
+
+            // Lighting Setup
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.70);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xfff8ee, 0.95);
+            dirLight.position.set(30, 50, 25);
+            dirLight.castShadow = true;
+            dirLight.shadow.mapSize.width = 1024;
+            dirLight.shadow.mapSize.height = 1024;
+            dirLight.shadow.camera.near = 0.5;
+            dirLight.shadow.camera.far = 180;
+            const d = 30;
+            dirLight.shadow.camera.left = -d;
+            dirLight.shadow.camera.right = d;
+            dirLight.shadow.camera.top = d;
+            dirLight.shadow.camera.bottom = -d;
+            scene.add(dirLight);
+
+            createBaseplate();
+            initColorPaletteUI();
+            updateBuildPreview();
+
+            // Pointer & Window Events
+            container.addEventListener('pointerdown', onPointerDown);
+            container.addEventListener('pointermove', onPointerMove);
+            container.addEventListener('pointerup', onPointerUp);
+            container.addEventListener('pointercancel', onPointerUp);
+            container.addEventListener('wheel', onMouseWheel, { passive: false });
+            window.addEventListener('resize', onWindowResize);
+
+            // Load saved state if any
+            loadWorldLocal(true);
+        }
+
+        // --- BASEPLATE & GEOMETRY ---
+        function createBaseplate() {
+            const mat = new THREE.MeshStandardMaterial({ color: 0x1b4332, roughness: 0.3, metalness: 0.1 });
+            const geo = new THREE.BoxGeometry(BASEPLATE_SIZE, 0.8, BASEPLATE_SIZE);
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.set(0, -0.4, 0);
+            mesh.receiveShadow = true;
+            scene.add(mesh);
+            buildableMeshes.push(mesh);
+
+            // Baseplate Studs via InstancedMesh
+            const studGeo = new THREE.CylinderGeometry(STUD_RADIUS, STUD_RADIUS, 0.14, 12);
+            const studMat = new THREE.MeshStandardMaterial({ color: 0x2d6a4f, roughness: 0.2 });
+            const instancedStuds = new THREE.InstancedMesh(studGeo, studMat, BASEPLATE_SIZE * BASEPLATE_SIZE);
+            let idx = 0;
+            const dummy = new THREE.Object3D();
+            const startPos = -BASEPLATE_SIZE / 2 + 0.5;
+
+            for (let x = 0; x < BASEPLATE_SIZE; x++) {
+                for (let z = 0; z < BASEPLATE_SIZE; z++) {
+                    dummy.position.set(startPos + x, 0.07, startPos + z);
+                    dummy.updateMatrix();
+                    instancedStuds.setMatrixAt(idx++, dummy.matrix);
+                }
+            }
+            scene.add(instancedStuds);
+        }
+
+        function createLegoBrickGeometry(width, length, heightUnits = 1, isTransparent = false) {
+            const group = new THREE.Group();
+            const h = heightUnits * BRICK_HEIGHT;
+
+            const boxGeo = new THREE.BoxGeometry(width * LEGO_UNIT, h, length * LEGO_UNIT);
+            const boxMesh = new THREE.Mesh(boxGeo);
+            boxMesh.position.y = h / 2;
+            boxMesh.castShadow = !isTransparent;
+            boxMesh.receiveShadow = !isTransparent;
+            group.add(boxMesh);
+
+            const studGeo = new THREE.CylinderGeometry(STUD_RADIUS, STUD_RADIUS, STUD_HEIGHT, 14);
+            const startX = - (width * LEGO_UNIT) / 2 + LEGO_UNIT / 2;
+            const startZ = - (length * LEGO_UNIT) / 2 + LEGO_UNIT / 2;
+
+            for (let x = 0; x < width; x++) {
+                for (let z = 0; z < length; z++) {
+                    const studMesh = new THREE.Mesh(studGeo);
+                    studMesh.position.set(startX + x * LEGO_UNIT, h + STUD_HEIGHT / 2, startZ + z * LEGO_UNIT);
+                    studMesh.castShadow = !isTransparent;
+                    studMesh.receiveShadow = !isTransparent;
+                    group.add(studMesh);
+                }
+            }
+            return group;
+        }
+
+        function createLegoMaterial(hexColor, opacity = 1.0) {
+            return new THREE.MeshStandardMaterial({
+                color: new THREE.Color(hexColor),
+                roughness: 0.18,
+                metalness: 0.08,
+                transparent: opacity < 1.0,
+                opacity: opacity
+            });
+        }
+
+        function initColorPaletteUI() {
+            const container = document.getElementById('color-picker-container');
+            container.innerHTML = '';
+            PALETTE_COLORS.forEach((color, idx) => {
+                const btn = document.createElement('button');
+                btn.className = `color-btn touch-target shrink-0 w-10 h-10 rounded-xl border-2 transition ${idx === 0 ? 'border-amber-400 scale-105' : 'border-white/20'}`;
+                btn.style.backgroundColor = color;
+                btn.onclick = () => selectColor(color, btn);
+                container.appendChild(btn);
+            });
+        }
+
+        // --- CAMERA CONTROLS & ZOOM ---
+        function updateCameraPosition() {
+            cameraPhi = Math.max(0.08, Math.min(Math.PI / 2 - 0.03, cameraPhi));
+            cameraRadius = Math.max(6, Math.min(80, cameraRadius));
+            camera.position.x = cameraTarget.x + cameraRadius * Math.sin(cameraPhi) * Math.cos(cameraTheta);
+            camera.position.y = cameraTarget.y + cameraRadius * Math.cos(cameraPhi);
+            camera.position.z = cameraTarget.z + cameraRadius * Math.sin(cameraPhi) * Math.sin(cameraTheta);
+            camera.lookAt(cameraTarget);
+        }
+
+        function zoomInCamera() {
+            cameraRadius = Math.max(6, cameraRadius - 3.5);
+            updateCameraPosition();
+            showToast('Zoomed In');
+        }
+
+        function zoomOutCamera() {
+            cameraRadius = Math.min(80, cameraRadius + 3.5);
+            updateCameraPosition();
+            showToast('Zoomed Out');
+        }
+
+        function onMouseWheel(e) {
+            e.preventDefault();
+            cameraRadius += e.deltaY * 0.02;
+            updateCameraPosition();
+        }
+
+        function resetCameraView() {
+            cameraRadius = 24;
+            cameraTheta = Math.PI / 4;
+            cameraPhi = Math.PI / 3.2;
+            cameraTarget.set(0, 1.2, 0);
+            updateCameraPosition();
+            showToast('Camera View Reset');
+        }
+
+        // --- POINTER & TOUCH EVENT GESTURES ---
+        function onPointerDown(e) {
+            activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+            pointerDownPos = { x: e.clientX, y: e.clientY };
+            pointerDownTime = Date.now();
+            isPointerDragging = false;
+        }
+
+        function onPointerMove(e) {
+            if (!activePointers.has(e.pointerId)) return;
+            const prev = activePointers.get(e.pointerId);
+            const deltaX = e.clientX - prev.x;
+            const deltaY = e.clientY - prev.y;
+
+            if (Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y) > 5) {
+                isPointerDragging = true;
+            }
+            activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+            // Two-finger Pinch & Zoom
+            if (activePointers.size === 2) {
+                const points = Array.from(activePointers.values());
+                const dist = Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y);
+                if (prevPinchDist) {
+                    const diff = prevPinchDist - dist;
+                    cameraRadius += diff * 0.12;
+                    updateCameraPosition();
+                }
+                prevPinchDist = dist;
+                return;
+            } else {
+                prevPinchDist = null;
+            }
+
+            // Single Pointer Interactions
+            if (activePointers.size === 1) {
+                if (interactionMode === 'camera' || (e.buttons === 1 && e.shiftKey) || isPointerDragging && interactionMode !== 'build') {
+                    cameraTheta -= deltaX * 0.007;
+                    cameraPhi -= deltaY * 0.007;
+                    updateCameraPosition();
+                } else if (interactionMode === 'build') {
+                    updatePreviewPosition(e);
+                }
+            }
+        }
+
+        function onPointerUp(e) {
+            activePointers.delete(e.pointerId);
+            if (activePointers.size < 2) prevPinchDist = null;
+
+            const elapsed = Date.now() - pointerDownTime;
+            const moved = Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y);
+
+            if (!isPointerDragging || (elapsed < 300 && moved < 8)) {
+                handleTap(e);
+            }
+            isPointerDragging = false;
+        }
+
+        // --- RAYCASTING & BRICK PLACEMENT ---
+        function updatePreviewPosition(e) {
+            mouseVector.x = (e.clientX / window.innerWidth) * 2 - 1;
+            mouseVector.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouseVector, camera);
+            const intersects = raycaster.intersectObjects(buildableMeshes, true);
+
+            if (intersects.length > 0 && previewBrickGroup) {
+                const hit = intersects[0];
+                const normal = hit.face ? hit.face.normal.clone() : new THREE.Vector3(0, 1, 0);
+                if (hit.object && hit.object.matrixWorld) {
+                    normal.transformDirection(hit.object.matrixWorld).normalize();
+                }
+
+                let targetPoint = hit.point.clone().add(normal.clone().multiplyScalar(0.01));
+                
+                let posX = Math.round(targetPoint.x / LEGO_UNIT) * LEGO_UNIT;
+                let posZ = Math.round(targetPoint.z / LEGO_UNIT) * LEGO_UNIT;
+                let posY = Math.round(targetPoint.y / BRICK_HEIGHT) * BRICK_HEIGHT;
+
+                if (normal.y > 0.5) {
+                    posY = Math.floor((hit.point.y + 0.01) / BRICK_HEIGHT) * BRICK_HEIGHT;
+                } else if (normal.y < -0.5) {
+                    posY = Math.ceil((hit.point.y - 0.01) / BRICK_HEIGHT) * BRICK_HEIGHT - BRICK_HEIGHT;
+                }
+
+                posY = Math.max(0, posY);
+
+                previewBrickGroup.position.set(posX, posY, posZ);
+                previewBrickGroup.visible = true;
+            } else if (previewBrickGroup) {
+                previewBrickGroup.visible = false;
+            }
+        }
+
+        function handleTap(e) {
+            mouseVector.x = (e.clientX / window.innerWidth) * 2 - 1;
+            mouseVector.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouseVector, camera);
+
+            if (interactionMode === 'build') {
+                if (previewBrickGroup && previewBrickGroup.visible) {
+                    const pos = previewBrickGroup.position;
+                    placeBrick(pos.x, pos.y, pos.z, selectedWidth, selectedLength, selectedColor, selectedRotation);
+                }
+            } else if (interactionMode === 'select') {
+                const intersects = raycaster.intersectObjects(userBricks.map(b => b.mesh), true);
+                if (intersects.length > 0) {
+                    let topObj = intersects[0].object;
+                    while (topObj.parent && topObj.parent !== scene) {
+                        topObj = topObj.parent;
+                    }
+                    selectBrickObject(topObj);
+                } else {
+                    deselectCurrentBrick();
+                }
+            }
+        }
+
+        // --- BRICK OPERATIONS ---
+        function placeBrick(x, y, z, width, length, colorHex, rotationY = 0, recordUndo = true) {
+            const brickGroup = createLegoBrickGeometry(width, length, 1);
+            const mat = createLegoMaterial(colorHex);
+
+            brickGroup.traverse((child) => {
+                if (child.isMesh) {
+                    child.material = mat;
+                    buildableMeshes.push(child);
+                }
+            });
+
+            brickGroup.position.set(x, y, z);
+            brickGroup.rotation.y = rotationY;
+            scene.add(brickGroup);
+
+            const brickRecord = { id: Date.now() + Math.random(), mesh: brickGroup, x, y, z, width, length, colorHex, rotationY };
+            userBricks.push(brickRecord);
+            brickGroup.userData.record = brickRecord;
+
+            if (recordUndo) {
+                undoStack.push({ type: 'ADD', record: brickRecord });
+                redoStack = [];
+            }
+
+            updateBrickCountUI();
+            showToast('Brick placed successfully');
+            return brickRecord;
+        }
+
+        function selectBrickObject(group) {
+            deselectCurrentBrick();
+            if (!group || !group.userData.record) return;
+
+            activeSelectedMesh = group;
+            group.traverse((child) => {
+                if (child.isMesh) {
+                    child.material.emissive = new THREE.Color(0xf59e0b);
+                    child.material.emissiveIntensity = 0.35;
+                }
+            });
+            showToast('Brick Selected');
+        }
+
+        function deselectCurrentBrick() {
+            if (activeSelectedMesh) {
+                activeSelectedMesh.traverse((child) => {
+                    if (child.isMesh) {
+                        child.material.emissive = new THREE.Color(0x000000);
+                        child.material.emissiveIntensity = 0;
+                    }
+                });
+                activeSelectedMesh = null;
+            }
+        }
+
+        function rotateSelectedBrick() {
+            if (activeSelectedMesh) {
+                activeSelectedMesh.rotation.y += Math.PI / 2;
+                activeSelectedMesh.userData.record.rotationY = activeSelectedMesh.rotation.y;
+                showToast('Brick Rotated');
+            } else {
+                selectedRotation += Math.PI / 2;
+                if (selectedRotation >= Math.PI * 2) selectedRotation = 0;
+                if (previewBrickGroup) previewBrickGroup.rotation.y = selectedRotation;
+                showToast('Default Rotation Changed');
+            }
+        }
+
+        function deleteSelectedBrick() {
+            if (!activeSelectedMesh) {
+                showToast('Select a brick first');
+                return;
+            }
+            const record = activeSelectedMesh.userData.record;
+            scene.remove(activeSelectedMesh);
+
+            userBricks = userBricks.filter(b => b !== record);
+            buildableMeshes = buildableMeshes.filter(m => m.parent !== activeSelectedMesh);
+
+            undoStack.push({ type: 'DELETE', record: record });
+            redoStack = [];
+
+            activeSelectedMesh = null;
+            updateBrickCountUI();
+            showToast('Brick Deleted');
+        }
+
+        function undoAction() {
+            if (undoStack.length === 0) {
+                showToast('Nothing to Undo');
+                return;
+            }
+            const action = undoStack.pop();
+            if (action.type === 'ADD') {
+                scene.remove(action.record.mesh);
+                userBricks = userBricks.filter(b => b !== action.record);
+                buildableMeshes = buildableMeshes.filter(m => m.parent !== action.record.mesh);
+                redoStack.push(action);
+            } else if (action.type === 'DELETE') {
+                placeBrick(action.record.x, action.record.y, action.record.z, action.record.width, action.record.length, action.record.colorHex, action.record.rotationY, false);
+                redoStack.push(action);
+            }
+            updateBrickCountUI();
+            showToast('Undo performed');
+        }
+
+        function redoAction() {
+            if (redoStack.length === 0) {
+                showToast('Nothing to Redo');
+                return;
+            }
+            const action = redoStack.pop();
+            if (action.type === 'ADD') {
+                placeBrick(action.record.x, action.record.y, action.record.z, action.record.width, action.record.length, action.record.colorHex, action.record.rotationY, false);
+                undoStack.push(action);
+            } else if (action.type === 'DELETE') {
+                scene.remove(action.record.mesh);
+                userBricks = userBricks.filter(b => b !== action.record);
+                buildableMeshes = buildableMeshes.filter(m => m.parent !== action.record.mesh);
+                undoStack.push(action);
+            }
+            updateBrickCountUI();
+            showToast('Redo performed');
+        }
+
+        // --- PALETTE & MODES ---
+        function selectColor(hex, btnEl) {
+            selectedColor = hex;
+            document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('border-amber-400', 'scale-105'));
+            btnEl.classList.add('border-amber-400', 'scale-105');
+            updateBuildPreview();
+        }
+
+        function selectBrickSize(w, l) {
+            selectedWidth = w;
+            selectedLength = l;
+            document.querySelectorAll('.size-btn').forEach(b => {
+                b.classList.remove('bg-amber-500/20', 'border-amber-500/50', 'text-amber-400');
+                b.classList.add('bg-slate-800/80', 'border-slate-700', 'text-amber-300');
+            });
+            event.currentTarget.classList.remove('bg-slate-800/80', 'border-slate-700', 'text-amber-300');
+            event.currentTarget.classList.add('bg-amber-500/20', 'border-amber-500/50', 'text-amber-400');
+            updateBuildPreview();
+        }
+
+        function updateBuildPreview() {
+            if (previewBrickGroup) scene.remove(previewBrickGroup);
+
+            previewBrickGroup = createLegoBrickGeometry(selectedWidth, selectedLength, 1, true);
+            const previewMat = createLegoMaterial(selectedColor, 0.55);
+            previewBrickGroup.traverse((child) => {
+                if (child.isMesh) child.material = previewMat;
+            });
+            previewBrickGroup.rotation.y = selectedRotation;
+            previewBrickGroup.visible = (interactionMode === 'build');
+            scene.add(previewBrickGroup);
+        }
+
+        function setInteractionMode(mode) {
+            interactionMode = mode;
+            document.getElementById('mode-camera-btn').classList.remove('active-mode-btn');
+            document.getElementById('mode-build-btn').classList.remove('active-mode-btn');
+            document.getElementById('mode-select-btn').classList.remove('active-mode-btn');
+
+            document.getElementById(`mode-${mode}-btn`).classList.add('active-mode-btn');
+
+            if (previewBrickGroup) previewBrickGroup.visible = (mode === 'build');
+            if (mode !== 'select') deselectCurrentBrick();
+
+            const modeNames = { camera: 'Camera Mode', build: 'Build Mode', select: 'Select Mode' };
+            showToast(modeNames[mode]);
+        }
+
+        function updateBrickCountUI() {
+            document.getElementById('hud-brick-count').innerText = `Bricks: ${userBricks.length}`;
+        }
+
+        // --- PERSISTENCE (LOCAL STORAGE & JSON) ---
+        function saveWorldLocal() {
+            const data = userBricks.map(b => ({
+                x: b.x, y: b.y, z: b.z,
+                width: b.width, length: b.length,
+                colorHex: b.colorHex, rotationY: b.rotationY
+            }));
+            localStorage.setItem('brick_lab_pro_save', JSON.stringify(data));
+            showToast('Project saved to Local Storage');
+        }
+
+        function loadWorldLocal(silent = false) {
+            const raw = localStorage.getItem('brick_lab_pro_save');
+            if (!raw) {
+                if (!silent) showToast('No saved project found');
+                return;
+            }
+            clearAllUserBricks(true);
+            try {
+                const data = JSON.parse(raw);
+                data.forEach(b => placeBrick(b.x, b.y, b.z, b.width, b.length, b.colorHex, b.rotationY, false));
+                if (!silent) showToast('Project Loaded');
+            } catch (err) {
+                if (!silent) showToast('Error reading saved data');
+            }
+        }
+
+        function exportWorldJSON() {
+            const data = userBricks.map(b => ({
+                x: b.x, y: b.y, z: b.z,
+                width: b.width, length: b.length,
+                colorHex: b.colorHex, rotationY: b.rotationY
+            }));
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'brick_lab_world.json';
+            a.click();
+            showToast('JSON Export Downloaded');
+        }
+
+        function importWorldJSON(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const bricks = JSON.parse(e.target.result);
+                    if (!Array.isArray(bricks)) throw new Error();
+                    clearAllUserBricks(true);
+                    bricks.forEach(b => placeBrick(b.x, b.y, b.z, b.width, b.length, b.colorHex, b.rotationY, false));
+                    toggleSettingsPanel();
+                    showToast('Project Imported');
+                } catch(err) {
+                    showToast('Invalid JSON file');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function clearAllUserBricks(silent = false) {
+            userBricks.forEach(b => scene.remove(b.mesh));
+            userBricks = [];
+            buildableMeshes = buildableMeshes.filter(m => m.geometry && m.geometry.type === 'BoxGeometry' && m.position.y < 0);
+            undoStack = [];
+            redoStack = [];
+            deselectCurrentBrick();
+            updateBrickCountUI();
+            if (!silent) showToast('Canvas Cleared');
+        }
+
+        function toggleSettingsPanel() {
+            const panel = document.getElementById('settings-panel');
+            panel.classList.toggle('hidden');
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // --- RENDER LOOP ---
+        function animate() {
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+        }
+
+        window.onload = function() {
+            lucide.createIcons();
+            initEngine();
+            animate();
+        };
+    </script>
+</body>
+</html>
